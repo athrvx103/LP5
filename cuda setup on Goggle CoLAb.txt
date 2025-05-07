@@ -1,0 +1,9 @@
+!nvidia-smi
+
+!pip install git+https://github.com/andreinechaev/nvcc4jupyter.git
+
+!pip list
+
+%load_ext nvcc4jupyter
+
+%%cuda
