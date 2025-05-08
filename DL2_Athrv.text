@@ -1,0 +1,143 @@
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+import os
+import shutil
+import warnings
+warnings.filterwarnings('ignore')
+
+%load_ext autoreload
+%autoreload 2
+%matplotlib inline
+
+sns.set()
+sns.set_palette('Pastel2')
+SNS_CMAP = 'Pastel2'
+colors = sns.palettes.color_palette(SNS_CMAP)
+pd.options.mode.chained_assignment = None
+
+====================================================================
+
+
+#if dataset locally available
+df = pd.read_csv("IMDB Dataset.csv")
+
+#else load data from kaggle
+# import kagglehub
+# path = kagglehub.dataset_download("lakshmi25npathi/imdb-dataset-of-50k-movie-reviews")
+# df = pd.read_csv(os.path.join(path, "IMDB Dataset.csv"))
+
+
+===============================================================
+
+df.head()
+
+======================
+
+dfv = df.copy()
+dfv["word_count"] = dfv["review"].apply(lambda x: len(x.split()))
+dfv["char_count"] = dfv["review"].apply(lambda x: len(x))
+fig, ax = plt.subplots(1, 2, figsize=(15, 5))
+sns.kdeplot(data=dfv, x='word_count', hue='sentiment', ax=ax[0])
+sns.boxplot(data=dfv, x='char_count', hue='sentiment', ax=ax[1])
+plt.show()
+
+==================================
+
+from sklearn.feature_extraction.text import TfidfVectorizer
+import re
+import nltk
+from nltk.corpus import stopwords
+from nltk.stem import WordNetLemmatizer
+
+nltk.download('stopwords')
+nltk.download('wordnet')
+stop_words = set(stopwords.words("english"))
+lemmatizer = WordNetLemmatizer()
+
+================================================
+
+def clean_text(txt:str)->str:
+  txt = re.sub(r'<.*?>', '', txt)
+  txt = re.sub(r'[^a-z\s]', '', txt)
+  tokens = txt.split()
+  tokens = [lemmatizer.lemmatize(w) for w in tokens if w not in stop_words]
+  return ' '.join(tokens)[:2000]
+
+df['review'] = df['review'].apply(clean_text)
+
+===========================================================
+
+from sklearn.feature_extraction.text import TfidfVectorizer
+
+vectorizer = TfidfVectorizer(max_features=1024)
+X = vectorizer.fit_transform(df["review"])
+X = X.toarray()
+
+===============================================
+
+y = df['sentiment'].map({
+    "positive": 0,
+    "negative": 1,
+}).values
+
+X.shape, y.shape
+
+=============================================
+
+from sklearn.model_selection import train_test_split
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+X_train.shape, X_test.shape, y_train.shape, y_test.shape
+
+====================================================
+
+import tensorflow as tf
+from tensorflow import keras
+from keras import layers
+======================================
+
+model = keras.Sequential([
+    layers.Input(shape=(1024,)),
+    layers.Dense(256, activation='relu'),
+    layers.Dropout(0.3),
+    layers.Dense(64, activation='relu'),
+    layers.Dropout(0.3),
+    layers.Dense(1, activation='sigmoid')
+])
+
+model.compile(
+    loss='binary_crossentropy',
+    optimizer='adam',
+    metrics=['accuracy']
+    )
+
+model.summary()
+
+=========================================
+
+hist = model.fit(X_train, y_train, epochs=10, batch_size=32, validation_split=0.2)
+
+==============================================
+
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
+
+y_pred_logits = model.predict(X_test)
+y_pred = (y_pred_logits > 0.5).astype(int)
+cm = confusion_matrix(y_test, y_pred)
+
+disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=[0, 1])
+disp.plot()
+plt.show()
+
+
+===================================
+
+from sklearn.metrics import classification_report
+
+print(classification_report(y_test, y_pred))
+
+===========================================
+========================================
